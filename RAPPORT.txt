@@ -1,0 +1,383 @@
+# ========================================
+# INSTALLATION - GÉNÉRATEUR DE COMPTE RENDU
+# ========================================
+
+Write-Host ""
+Write-Host "========================================" -ForegroundColor Cyan
+Write-Host "  Installation du Générateur de CR" -ForegroundColor Green
+Write-Host "========================================" -ForegroundColor Cyan
+Write-Host ""
+
+# --- CHEMINS ---
+$desktopPath = [Environment]::GetFolderPath("Desktop")
+$documentsPath = [Environment]::GetFolderPath("MyDocuments")
+$appFolder = Join-Path $documentsPath "CompteRendu_Manager"
+$scriptPath = Join-Path $appFolder "CompteRendu.ps1"
+$shortcutPath = Join-Path $desktopPath "Compte Rendu.lnk"
+$saveFolder = Join-Path $documentsPath "Comptes_Rendus"
+
+# --- ÉTAPE 1 : NETTOYAGE ---
+Write-Host "🧹 Nettoyage..." -ForegroundColor Yellow
+if (Test-Path $shortcutPath) { 
+    Remove-Item $shortcutPath -Force -ErrorAction SilentlyContinue
+    Write-Host "   ✅ Ancien raccourci supprimé" -ForegroundColor Green 
+}
+if (Test-Path $scriptPath) { 
+    Remove-Item $scriptPath -Force -ErrorAction SilentlyContinue
+    Write-Host "   ✅ Ancien script supprimé" -ForegroundColor Green 
+}
+
+# --- ÉTAPE 2 : CRÉATION DES DOSSIERS ---
+if (-not (Test-Path $appFolder)) { 
+    New-Item -Path $appFolder -ItemType Directory | Out-Null 
+}
+if (-not (Test-Path $saveFolder)) { 
+    New-Item -Path $saveFolder -ItemType Directory | Out-Null 
+}
+Write-Host "📁 Dossiers créés" -ForegroundColor Green
+
+# --- ÉTAPE 3 : SCRIPT PRINCIPAL ---
+$mainScript = @'
+Add-Type -AssemblyName System.Windows.Forms
+Add-Type -AssemblyName System.Drawing
+
+# Vérification droits admin
+if (-not ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) {
+    [System.Windows.Forms.MessageBox]::Show("Le script va se relancer avec les droits administrateur.", "Information", "OK", "Information")
+    Start-Process powershell.exe -ArgumentList "-NoProfile -ExecutionPolicy Bypass -File `"$PSCommandPath`"" -Verb RunAs
+    exit
+}
+
+$saveFolder = Join-Path ([Environment]::GetFolderPath("MyDocuments")) "Comptes_Rendus"
+if (-not (Test-Path $saveFolder)) { New-Item -Path $saveFolder -ItemType Directory | Out-Null }
+
+# Variables
+$script:prenom = ""
+$script:nom = ""
+$script:titre = ""
+$script:description = ""
+$script:isValidated = $false
+
+# Formulaire principal
+$form = New-Object System.Windows.Forms.Form
+$form.Text = "Générateur de Compte Rendu Professionnel"
+$form.Size = New-Object System.Drawing.Size(900, 700)
+$form.StartPosition = "CenterScreen"
+$form.BackColor = [System.Drawing.Color]::White
+$form.FormBorderStyle = "FixedDialog"
+$form.MaximizeBox = $false
+
+# Panel principal avec scroll
+$mainPanel = New-Object System.Windows.Forms.Panel
+$mainPanel.Location = New-Object System.Drawing.Point(0, 0)
+$mainPanel.Size = New-Object System.Drawing.Size(884, 661)
+$mainPanel.AutoScroll = $true
+$form.Controls.Add($mainPanel)
+
+# Titre
+$lblTitre = New-Object System.Windows.Forms.Label
+$lblTitre.Text = "📋 GÉNÉRATEUR DE COMPTE RENDU"
+$lblTitre.Location = New-Object System.Drawing.Point(30, 20)
+$lblTitre.Size = New-Object System.Drawing.Size(800, 40)
+$lblTitre.Font = New-Object System.Drawing.Font("Segoe UI", 18, [System.Drawing.FontStyle]::Bold)
+$lblTitre.ForeColor = [System.Drawing.Color]::FromArgb(30, 64, 175)
+$mainPanel.Controls.Add($lblTitre)
+
+# Prénom
+$lblPrenom = New-Object System.Windows.Forms.Label
+$lblPrenom.Text = "Prénom *"
+$lblPrenom.Location = New-Object System.Drawing.Point(30, 80)
+$lblPrenom.Size = New-Object System.Drawing.Size(180, 25)
+$lblPrenom.Font = New-Object System.Drawing.Font("Segoe UI", 10, [System.Drawing.FontStyle]::Bold)
+$mainPanel.Controls.Add($lblPrenom)
+
+$txtPrenom = New-Object System.Windows.Forms.TextBox
+$txtPrenom.Location = New-Object System.Drawing.Point(220, 78)
+$txtPrenom.Size = New-Object System.Drawing.Size(300, 30)
+$txtPrenom.Font = New-Object System.Drawing.Font("Segoe UI", 11)
+$mainPanel.Controls.Add($txtPrenom)
+
+# Nom
+$lblNom = New-Object System.Windows.Forms.Label
+$lblNom.Text = "Nom *"
+$lblNom.Location = New-Object System.Drawing.Point(30, 120)
+$lblNom.Size = New-Object System.Drawing.Size(180, 25)
+$lblNom.Font = New-Object System.Drawing.Font("Segoe UI", 10, [System.Drawing.FontStyle]::Bold)
+$mainPanel.Controls.Add($lblNom)
+
+$txtNom = New-Object System.Windows.Forms.TextBox
+$txtNom.Location = New-Object System.Drawing.Point(220, 118)
+$txtNom.Size = New-Object System.Drawing.Size(300, 30)
+$txtNom.Font = New-Object System.Drawing.Font("Segoe UI", 11)
+$mainPanel.Controls.Add($txtNom)
+
+# Titre du CR
+$lblTitreCR = New-Object System.Windows.Forms.Label
+$lblTitreCR.Text = "Titre du compte rendu *"
+$lblTitreCR.Location = New-Object System.Drawing.Point(30, 160)
+$lblTitreCR.Size = New-Object System.Drawing.Size(180, 25)
+$lblTitreCR.Font = New-Object System.Drawing.Font("Segoe UI", 10, [System.Drawing.FontStyle]::Bold)
+$mainPanel.Controls.Add($lblTitreCR)
+
+$txtTitreCR = New-Object System.Windows.Forms.TextBox
+$txtTitreCR.Location = New-Object System.Drawing.Point(220, 158)
+$txtTitreCR.Size = New-Object System.Drawing.Size(600, 30)
+$txtTitreCR.Font = New-Object System.Drawing.Font("Segoe UI", 11)
+$mainPanel.Controls.Add($txtTitreCR)
+
+# Description
+$lblDesc = New-Object System.Windows.Forms.Label
+$lblDesc.Text = "Contenu du rapport *"
+$lblDesc.Location = New-Object System.Drawing.Point(30, 200)
+$lblDesc.Size = New-Object System.Drawing.Size(180, 25)
+$lblDesc.Font = New-Object System.Drawing.Font("Segoe UI", 10, [System.Drawing.FontStyle]::Bold)
+$mainPanel.Controls.Add($lblDesc)
+
+$txtDesc = New-Object System.Windows.Forms.TextBox
+$txtDesc.Location = New-Object System.Drawing.Point(220, 198)
+$txtDesc.Size = New-Object System.Drawing.Size(600, 300)
+$txtDesc.Multiline = $true
+$txtDesc.ScrollBars = "Vertical"
+$txtDesc.Font = New-Object System.Drawing.Font("Segoe UI", 10)
+$mainPanel.Controls.Add($txtDesc)
+
+# Bouton Générer
+$btnGenerer = New-Object System.Windows.Forms.Button
+$btnGenerer.Text = "🚀 GÉNÉRER LE COMPTE RENDU"
+$btnGenerer.Location = New-Object System.Drawing.Point(220, 520)
+$btnGenerer.Size = New-Object System.Drawing.Size(400, 50)
+$btnGenerer.BackColor = [System.Drawing.Color]::FromArgb(37, 99, 235)
+$btnGenerer.ForeColor = [System.Drawing.Color]::White
+$btnGenerer.FlatStyle = "Flat"
+$btnGenerer.Font = New-Object System.Drawing.Font("Segoe UI", 12, [System.Drawing.FontStyle]::Bold)
+$btnGenerer.Cursor = [System.Windows.Forms.Cursors]::Hand
+$btnGenerer.Add_Click({
+    if ([string]::IsNullOrWhiteSpace($txtPrenom.Text) -or 
+        [string]::IsNullOrWhiteSpace($txtNom.Text) -or 
+        [string]::IsNullOrWhiteSpace($txtTitreCR.Text) -or 
+        [string]::IsNullOrWhiteSpace($txtDesc.Text)) {
+        [System.Windows.Forms.MessageBox]::Show("Veuillez remplir tous les champs obligatoires!", "Erreur", "OK", "Error")
+        return
+    }
+    
+    $maintenant = Get-Date
+    $dateFormatee = $maintenant.ToString("dd/MM/yyyy")
+    $heureFormatee = $maintenant.ToString("HH:mm:ss")
+    $reference = "CR-" + $maintenant.ToString("yyyyMMdd-HHmmss")
+    $timestamp = $maintenant.ToString("yyyyMMdd_HHmmss")
+    
+    $nomFichier = "CR_$($txtNom.Text)_$timestamp.html"
+    $cheminFichier = Join-Path $saveFolder $nomFichier
+    
+    $paragraphes = $txtDesc.Text -split "`n" | Where-Object { $_.Trim() -ne "" } | ForEach-Object { "<p>$_</p>" }
+    $contenuParagraphes = $paragraphes -join "`n                "
+    
+    $htmlContent = @"
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>$($txtTitreCR.Text)</title>
+    <style>
+        @page { margin: 2cm; }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { 
+            font-family: 'Calibri', 'Arial', sans-serif;
+            line-height: 1.6;
+            color: #2c3e50;
+            background: #ffffff;
+        }
+        .document {
+            max-width: 21cm;
+            margin: 0 auto;
+            padding: 2.5cm;
+            background: white;
+        }
+        .entete {
+            border-bottom: 3px solid #2c3e50;
+            padding-bottom: 1.5rem;
+            margin-bottom: 3rem;
+        }
+        .entete-contenu {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+        }
+        .type-document {
+            font-size: 1.5rem;
+            font-weight: bold;
+            color: #2c3e50;
+            letter-spacing: 2px;
+        }
+        .mentions {
+            font-size: 0.75rem;
+            color: #7f8c8d;
+            margin-top: 0.25rem;
+        }
+        .metadonnees {
+            text-align: right;
+            font-size: 0.75rem;
+            color: #7f8c8d;
+            line-height: 1.6;
+        }
+        .metadonnees strong { color: #2c3e50; }
+        .titre-principal {
+            background: linear-gradient(135deg, #2c3e50 0%, #34495e 100%);
+            color: white;
+            padding: 2.5rem;
+            margin: 2.5rem -2.5cm;
+            text-align: center;
+        }
+        .titre-principal h1 {
+            font-size: 2rem;
+            font-weight: bold;
+            margin: 0;
+            letter-spacing: 1px;
+        }
+        .titre-principal .sous-titre {
+            font-size: 0.9rem;
+            margin-top: 0.75rem;
+            opacity: 0.95;
+        }
+        .auteur-bloc {
+            background: #ffffff;
+            border: 2px solid #3498db;
+            border-radius: 0.375rem;
+            padding: 1.5rem;
+            margin: 2rem 0;
+        }
+        .auteur-bloc strong {
+            color: #2c3e50;
+            font-size: 1rem;
+        }
+        .section {
+            margin: 2.5rem 0;
+        }
+        .section-titre {
+            font-size: 1.25rem;
+            font-weight: bold;
+            color: #2c3e50;
+            border-left: 4px solid #3498db;
+            padding-left: 1rem;
+            margin-bottom: 1.25rem;
+        }
+        .contenu-bloc {
+            background: #f8f9fa;
+            border: 1px solid #e9ecef;
+            border-radius: 0.375rem;
+            padding: 2rem;
+            text-align: justify;
+            font-size: 1rem;
+            line-height: 1.8;
+            color: #2c3e50;
+        }
+        .contenu-bloc p {
+            margin-bottom: 1rem;
+        }
+        .contenu-bloc p:last-child {
+            margin-bottom: 0;
+        }
+        .pied-page {
+            margin-top: 4rem;
+            padding-top: 1.5rem;
+            border-top: 2px solid #e9ecef;
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.7rem;
+            color: #7f8c8d;
+        }
+        @media print {
+            body { background: white; }
+            .document { margin: 0; padding: 0; }
+            .titre-principal { margin-left: 0; margin-right: 0; }
+        }
+    </style>
+</head>
+<body>
+    <div class="document">
+        <div class="entete">
+            <div class="entete-contenu">
+                <div>
+                    <div class="type-document">COMPTE RENDU</div>
+                    <div class="mentions">Document officiel</div>
+                </div>
+                <div class="metadonnees">
+                    <div><strong>Date :</strong> $dateFormatee</div>
+                    <div><strong>Heure :</strong> $heureFormatee</div>
+                    <div><strong>Référence :</strong> $reference</div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="titre-principal">
+            <h1>$($txtTitreCR.Text)</h1>
+            <div class="sous-titre">Compte Rendu Officiel</div>
+        </div>
+        
+        <div class="auteur-bloc">
+            <strong>Rédigé par :</strong> $($txtPrenom.Text) $($txtNom.Text.ToUpper())
+        </div>
+        
+        <div class="section">
+            <div class="section-titre">CONTENU DU RAPPORT</div>
+            <div class="contenu-bloc">
+                $contenuParagraphes
+            </div>
+        </div>
+        
+        <div class="pied-page">
+            <div>Document généré le $dateFormatee à $heureFormatee</div>
+            <div>Page 1/1</div>
+        </div>
+    </div>
+</body>
+</html>
+"@
+    
+    $htmlContent | Out-File -FilePath $cheminFichier -Encoding UTF8
+    
+    [System.Windows.Forms.MessageBox]::Show(
+        "Compte rendu généré avec succès !`n`nEmplacement : $cheminFichier", 
+        "Succès", 
+        "OK", 
+        "Information"
+    )
+    
+    Start-Process $cheminFichier
+})
+$mainPanel.Controls.Add($btnGenerer)
+
+$form.ShowDialog() | Out-Null
+'@
+
+# --- ÉCRITURE DU SCRIPT ---
+$mainScript | Out-File -FilePath $scriptPath -Encoding UTF8 -Force
+Write-Host "✅ Script installé avec succès!" -ForegroundColor Green
+
+# --- ÉTAPE 4 : CRÉATION DU RACCOURCI ---
+Write-Host "🔗 Création du raccourci..." -ForegroundColor Yellow
+$WshShell = New-Object -ComObject WScript.Shell
+$Shortcut = $WshShell.CreateShortcut($shortcutPath)
+$Shortcut.TargetPath = "powershell.exe"
+$Shortcut.Arguments = "-NoProfile -ExecutionPolicy Bypass -WindowStyle Normal -File `"$scriptPath`""
+$Shortcut.WorkingDirectory = $appFolder
+$Shortcut.IconLocation = "shell32.dll,165"
+$Shortcut.Description = "Générateur de Compte Rendu Professionnel"
+$Shortcut.Save()
+Write-Host "✅ Raccourci créé!" -ForegroundColor Green
+
+# --- RÉSUMÉ ---
+Write-Host ""
+Write-Host "========================================" -ForegroundColor Cyan
+Write-Host "  ✅ INSTALLATION TERMINÉE!" -ForegroundColor Green
+Write-Host "========================================" -ForegroundColor Cyan
+Write-Host ""
+Write-Host "📍 Script : $scriptPath" -ForegroundColor White
+Write-Host "📍 Raccourci : $shortcutPath" -ForegroundColor White
+Write-Host "📁 Rapports : $saveFolder" -ForegroundColor White
+Write-Host ""
+Write-Host "▶️  Double-cliquez sur le raccourci pour démarrer!" -ForegroundColor Yellow
+Write-Host ""
+
+Read-Host "Appuyez sur Entrée pour fermer"
