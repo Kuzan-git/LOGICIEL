@@ -1,0 +1,1293 @@
+# ====================================
+# SCRIPT DE NETTOYAGE AUTOMATIQUE PC
+# Version Portable avec Installation Facile
+# ====================================
+
+Add-Type -AssemblyName System.Windows.Forms
+Add-Type -AssemblyName System.Drawing
+
+# ====================================
+# INSTALLATION AUTOMATIQUE AU DÉMARRAGE
+# ====================================
+
+$scriptPath = "$env:USERPROFILE\Documents\NettoyageAutoPC.ps1"
+$desktopPath = [Environment]::GetFolderPath("Desktop")
+$shortcutPath = Join-Path $desktopPath "Nettoyage Auto PC.lnk"
+
+# Fonction pour installer le script
+function Install-Script {
+    try {
+        # Si le script actuel n'est PAS déjà dans Documents, on le copie
+        if ($PSCommandPath -and (Test-Path $PSCommandPath) -and $PSCommandPath -ne $scriptPath) {
+            Copy-Item -Path $PSCommandPath -Destination $scriptPath -Force -ErrorAction Stop
+            Write-Host "✅ Script installé dans Documents" -ForegroundColor Green
+        }
+        
+        # Créer automatiquement le raccourci si le script existe
+        if (Test-Path $scriptPath) {
+            $WScriptShell = New-Object -ComObject WScript.Shell
+            $Shortcut = $WScriptShell.CreateShortcut($shortcutPath)
+            $Shortcut.TargetPath = "PowerShell.exe"
+            $Shortcut.Arguments = "-NoProfile -ExecutionPolicy Bypass -WindowStyle Normal -File `"$scriptPath`""
+            $Shortcut.WorkingDirectory = [System.IO.Path]::GetDirectoryName($scriptPath)
+            $Shortcut.Description = "Nettoyage Automatique PC - Cliquez pour lancer"
+            $Shortcut.IconLocation = "shell32.dll,47"
+            $Shortcut.Save()
+            [System.Runtime.Interopservices.Marshal]::ReleaseComObject($WScriptShell) | Out-Null
+            Write-Host "✅ Raccourci créé sur le Bureau" -ForegroundColor Green
+        }
+    } catch {
+        Write-Host "⚠️ Installation automatique échouée" -ForegroundColor Yellow
+    }
+}
+
+# Installer automatiquement au premier lancement
+Install-Script
+
+# ====================================
+# INTERFACE GRAPHIQUE
+# ====================================
+
+# Créer le formulaire principal
+$form = New-Object System.Windows.Forms.Form
+$form.Text = "🗑️ Gestionnaire de Nettoyage Automatique PC"
+$form.Size = New-Object System.Drawing.Size(650, 750)
+$form.StartPosition = "CenterScreen"
+$form.FormBorderStyle = "FixedDialog"
+$form.MaximizeBox = $false
+$form.BackColor = [System.Drawing.Color]::White
+
+# Titre
+$lblTitle = New-Object System.Windows.Forms.Label
+$lblTitle.Location = New-Object System.Drawing.Point(20, 20)
+$lblTitle.Size = New-Object System.Drawing.Size(600, 30)
+$lblTitle.Text = "GESTIONNAIRE DE NETTOYAGE AUTOMATIQUE"
+$lblTitle.Font = New-Object System.Drawing.Font("Segoe UI", 12, [System.Drawing.FontStyle]::Bold)
+$lblTitle.ForeColor = [System.Drawing.Color]::FromArgb(0, 120, 212)
+$form.Controls.Add($lblTitle)
+
+# ====================================
+# GROUPE : DOSSIERS À NETTOYER
+# ====================================
+
+$groupFolders = New-Object System.Windows.Forms.GroupBox
+$groupFolders.Location = New-Object System.Drawing.Point(20, 60)
+$groupFolders.Size = New-Object System.Drawing.Size(600, 180)
+$groupFolders.Text = "📁 Dossiers à nettoyer"
+$groupFolders.Font = New-Object System.Drawing.Font("Segoe UI", 10, [System.Drawing.FontStyle]::Bold)
+$form.Controls.Add($groupFolders)
+
+# Checkboxes pour chaque dossier
+$chkDownloads = New-Object System.Windows.Forms.CheckBox
+$chkDownloads.Location = New-Object System.Drawing.Point(20, 30)
+$chkDownloads.Size = New-Object System.Drawing.Size(200, 25)
+$chkDownloads.Text = "Téléchargements"
+$chkDownloads.Checked = $true
+$groupFolders.Controls.Add($chkDownloads)
+
+$chkDocuments = New-Object System.Windows.Forms.CheckBox
+$chkDocuments.Location = New-Object System.Drawing.Point(20, 60)
+$chkDocuments.Size = New-Object System.Drawing.Size(200, 25)
+$chkDocuments.Text = "Documents"
+$chkDocuments.Checked = $true
+$groupFolders.Controls.Add($chkDocuments)
+
+$chkPictures = New-Object System.Windows.Forms.CheckBox
+$chkPictures.Location = New-Object System.Drawing.Point(20, 90)
+$chkPictures.Size = New-Object System.Drawing.Size(200, 25)
+$chkPictures.Text = "Images"
+$chkPictures.Checked = $true
+$groupFolders.Controls.Add($chkPictures)
+
+$chkVideos = New-Object System.Windows.Forms.CheckBox
+$chkVideos.Location = New-Object System.Drawing.Point(20, 120)
+$chkVideos.Size = New-Object System.Drawing.Size(200, 25)
+$chkVideos.Text = "Vidéos"
+$chkVideos.Checked = $true
+$groupFolders.Controls.Add($chkVideos)
+
+$chkMusic = New-Object System.Windows.Forms.CheckBox
+$chkMusic.Location = New-Object System.Drawing.Point(20, 150)
+$chkMusic.Size = New-Object System.Drawing.Size(200, 25)
+$chkMusic.Text = "Musique"
+$chkMusic.Checked = $true
+$groupFolders.Controls.Add($chkMusic)
+
+$chkRecycleBin = New-Object System.Windows.Forms.CheckBox
+$chkRecycleBin.Location = New-Object System.Drawing.Point(250, 30)
+$chkRecycleBin.Size = New-Object System.Drawing.Size(200, 25)
+$chkRecycleBin.Text = "Vider la corbeille"
+$chkRecycleBin.Checked = $true
+$groupFolders.Controls.Add($chkRecycleBin)
+
+$chkTemp = New-Object System.Windows.Forms.CheckBox
+$chkTemp.Location = New-Object System.Drawing.Point(250, 60)
+$chkTemp.Size = New-Object System.Drawing.Size(200, 25)
+$chkTemp.Text = "Dossiers Temp"
+$chkTemp.Checked = $true
+$groupFolders.Controls.Add($chkTemp)
+
+# ====================================
+# GROUPE : PLANIFICATION
+# ====================================
+
+$groupSchedule = New-Object System.Windows.Forms.GroupBox
+$groupSchedule.Location = New-Object System.Drawing.Point(20, 250)
+$groupSchedule.Size = New-Object System.Drawing.Size(600, 150)
+$groupSchedule.Text = "⏰ Planification automatique"
+$groupSchedule.Font = New-Object System.Drawing.Font("Segoe UI", 10, [System.Drawing.FontStyle]::Bold)
+$form.Controls.Add($groupSchedule)
+
+$lblHour = New-Object System.Windows.Forms.Label
+$lblHour.Location = New-Object System.Drawing.Point(20, 35)
+$lblHour.Size = New-Object System.Drawing.Size(150, 25)
+$lblHour.Text = "Heure de nettoyage :"
+$groupSchedule.Controls.Add($lblHour)
+
+$numHour = New-Object System.Windows.Forms.NumericUpDown
+$numHour.Location = New-Object System.Drawing.Point(170, 33)
+$numHour.Size = New-Object System.Drawing.Size(60, 25)
+$numHour.Minimum = 0
+$numHour.Maximum = 23
+$numHour.Value = 18
+$groupSchedule.Controls.Add($numHour)
+
+$lblColon = New-Object System.Windows.Forms.Label
+$lblColon.Location = New-Object System.Drawing.Point(235, 35)
+$lblColon.Size = New-Object System.Drawing.Size(10, 25)
+$lblColon.Text = ":"
+$lblColon.Font = New-Object System.Drawing.Font("Segoe UI", 10, [System.Drawing.FontStyle]::Bold)
+$groupSchedule.Controls.Add($lblColon)
+
+$numMinute = New-Object System.Windows.Forms.NumericUpDown
+$numMinute.Location = New-Object System.Drawing.Point(250, 33)
+$numMinute.Size = New-Object System.Drawing.Size(60, 25)
+$numMinute.Minimum = 0
+$numMinute.Maximum = 59
+$numMinute.Value = 0
+$groupSchedule.Controls.Add($numMinute)
+
+$chkEnabled = New-Object System.Windows.Forms.CheckBox
+$chkEnabled.Location = New-Object System.Drawing.Point(20, 70)
+$chkEnabled.Size = New-Object System.Drawing.Size(300, 25)
+$chkEnabled.Text = "Activer le nettoyage automatique quotidien"
+$chkEnabled.Checked = $true
+$groupSchedule.Controls.Add($chkEnabled)
+
+$chkStartup = New-Object System.Windows.Forms.CheckBox
+$chkStartup.Location = New-Object System.Drawing.Point(20, 100)
+$chkStartup.Size = New-Object System.Drawing.Size(350, 25)
+$chkStartup.Text = "Nettoyer aussi au démarrage de Windows"
+$chkStartup.Checked = $false
+$groupSchedule.Controls.Add($chkStartup)
+
+# ====================================
+# GROUPE : INSTALLATION RAPIDE
+# ====================================
+
+$groupPortable = New-Object System.Windows.Forms.GroupBox
+$groupPortable.Location = New-Object System.Drawing.Point(20, 410)
+$groupPortable.Size = New-Object System.Drawing.Size(600, 100)
+$groupPortable.Text = "💾 Installation rapide"
+$groupPortable.Font = New-Object System.Drawing.Font("Segoe UI", 10, [System.Drawing.FontStyle]::Bold)
+$form.Controls.Add($groupPortable)
+
+$lblPortableInfo = New-Object System.Windows.Forms.Label
+$lblPortableInfo.Location = New-Object System.Drawing.Point(20, 30)
+$lblPortableInfo.Size = New-Object System.Drawing.Size(560, 60)
+$lblPortableInfo.Text = "✅ Installation automatique effectuée !`n📁 Script installé dans : $scriptPath`n🔗 Raccourci créé sur le Bureau : 'Nettoyage Auto PC'`n`nSi le raccourci ne fonctionne pas, cliquez sur le bouton ci-dessous :"
+$lblPortableInfo.Font = New-Object System.Drawing.Font("Segoe UI", 8)
+$groupPortable.Controls.Add($lblPortableInfo)
+
+# Vérifier si l'installation a réussi
+if (-not (Test-Path $scriptPath) -or -not (Test-Path $shortcutPath)) {
+    $lblPortableInfo.Text = "⚠️ Installation incomplète. Cliquez sur le bouton pour installer :"
+    $lblPortableInfo.ForeColor = [System.Drawing.Color]::FromArgb(220, 53, 69)
+}
+
+# ====================================
+# GROUPE : ACTIONS
+# ====================================
+
+$groupActions = New-Object System.Windows.Forms.GroupBox
+$groupActions.Location = New-Object System.Drawing.Point(20, 520)
+$groupActions.Size = New-Object System.Drawing.Size(600, 160)
+$groupActions.Text = "🎯 Actions"
+$groupActions.Font = New-Object System.Drawing.Font("Segoe UI", 10, [System.Drawing.FontStyle]::Bold)
+$form.Controls.Add($groupActions)
+
+# ====================================
+# BOUTON : INSTALLER / RÉINSTALLER
+# ====================================
+
+$btnInstall = New-Object System.Windows.Forms.Button
+$btnInstall.Location = New-Object System.Drawing.Point(450, 35)
+$btnInstall.Size = New-Object System.Drawing.Size(120, 50)
+$btnInstall.Text = "🔧 (Ré)Installer"
+$btnInstall.BackColor = [System.Drawing.Color]::FromArgb(111, 66, 193)
+$btnInstall.ForeColor = [System.Drawing.Color]::White
+$btnInstall.FlatStyle = "Flat"
+$btnInstall.Font = New-Object System.Drawing.Font("Segoe UI", 9, [System.Drawing.FontStyle]::Bold)
+$btnInstall.Add_Click({
+    try {
+        # Copier le script
+        if ($PSCommandPath -and (Test-Path $PSCommandPath)) {
+            Copy-Item -Path $PSCommandPath -Destination $scriptPath -Force
+        }
+        
+        # Créer le raccourci
+        $WScriptShell = New-Object -ComObject WScript.Shell
+        $Shortcut = $WScriptShell.CreateShortcut($shortcutPath)
+        $Shortcut.TargetPath = "PowerShell.exe"
+        $Shortcut.Arguments = "-NoProfile -ExecutionPolicy Bypass -WindowStyle Normal -File `"$scriptPath`""
+        $Shortcut.WorkingDirectory = [System.IO.Path]::GetDirectoryName($scriptPath)
+        $Shortcut.Description = "Nettoyage Automatique PC - Double-cliquez pour lancer"
+        $Shortcut.IconLocation = "shell32.dll,47"
+        $Shortcut.Save()
+        [System.Runtime.Interopservices.Marshal]::ReleaseComObject($WScriptShell) | Out-Null
+        
+        # Mettre à jour l'affichage
+        $lblPortableInfo.Text = "✅ Installation réussie !`n📁 Script : $scriptPath`n🔗 Raccourci : Bureau\Nettoyage Auto PC.lnk`n`n👉 Double-cliquez sur le raccourci pour lancer le programme !"
+        $lblPortableInfo.ForeColor = [System.Drawing.Color]::FromArgb(40, 167, 69)
+        
+        [System.Windows.Forms.MessageBox]::Show("✅ Installation réussie !`n`n📁 Le script est installé dans :`n$scriptPath`n`n🔗 Le raccourci 'Nettoyage Auto PC' est sur votre Bureau`n`n👉 Fermez cette fenêtre et double-cliquez sur le raccourci pour lancer le programme !", "Installation réussie", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Information)
+    } catch {
+        [System.Windows.Forms.MessageBox]::Show("❌ Erreur d'installation :`n`n$($_.Exception.Message)", "Erreur", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Error)
+    }
+})
+$groupPortable.Controls.Add($btnInstall)
+
+# ====================================
+# BOUTON : NETTOYER MAINTENANT
+# ====================================
+
+$btnCleanNow = New-Object System.Windows.Forms.Button
+$btnCleanNow.Location = New-Object System.Drawing.Point(20, 30)
+$btnCleanNow.Size = New-Object System.Drawing.Size(180, 40)
+$btnCleanNow.Text = "🗑️ NETTOYER MAINTENANT"
+$btnCleanNow.BackColor = [System.Drawing.Color]::FromArgb(220, 53, 69)
+$btnCleanNow.ForeColor = [System.Drawing.Color]::White
+$btnCleanNow.FlatStyle = "Flat"
+$btnCleanNow.Font = New-Object System.Drawing.Font("Segoe UI", 9, [System.Drawing.FontStyle]::Bold)
+$btnCleanNow.Add_Click({
+    $result = [System.Windows.Forms.MessageBox]::Show(
+        "⚠️ ATTENTION : Cette action va supprimer DÉFINITIVEMENT tous les fichiers des dossiers sélectionnés !`n`nContinuer ?",
+        "Confirmation",
+        [System.Windows.Forms.MessageBoxButtons]::YesNo,
+        [System.Windows.Forms.MessageBoxIcon]::Warning
+    )
+    
+    if ($result -eq [System.Windows.Forms.DialogResult]::Yes) {
+        if ($chkDownloads.Checked) { Remove-Item "$env:USERPROFILE\Downloads\*" -Recurse -Force -ErrorAction SilentlyContinue }
+        if ($chkDocuments.Checked) { Remove-Item "$env:USERPROFILE\Documents\*" -Recurse -Force -ErrorAction SilentlyContinue }
+        if ($chkPictures.Checked) { Remove-Item "$env:USERPROFILE\Pictures\*" -Recurse -Force -ErrorAction SilentlyContinue }
+        if ($chkVideos.Checked) { Remove-Item "$env:USERPROFILE\Videos\*" -Recurse -Force -ErrorAction SilentlyContinue }
+        if ($chkMusic.Checked) { Remove-Item "$env:USERPROFILE\Music\*" -Recurse -Force -ErrorAction SilentlyContinue }
+        if ($chkTemp.Checked) { 
+            Remove-Item "$env:TEMP\*" -Recurse -Force -ErrorAction SilentlyContinue 
+            Remove-Item "C:\Windows\Temp\*" -Recurse -Force -ErrorAction SilentlyContinue
+        }
+        if ($chkRecycleBin.Checked) { Clear-RecycleBin -Force -ErrorAction SilentlyContinue }
+        
+        [System.Windows.Forms.MessageBox]::Show("✅ Nettoyage terminé !", "Succès", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Information)
+    }
+})
+$groupActions.Controls.Add($btnCleanNow)
+
+# ====================================
+# BOUTON : APPLIQUER LA PLANIFICATION
+# ====================================
+
+$btnApply = New-Object System.Windows.Forms.Button
+$btnApply.Location = New-Object System.Drawing.Point(210, 30)
+$btnApply.Size = New-Object System.Drawing.Size(180, 40)
+$btnApply.Text = "💾 APPLIQUER LA CONFIG"
+$btnApply.BackColor = [System.Drawing.Color]::FromArgb(40, 167, 69)
+$btnApply.ForeColor = [System.Drawing.Color]::White
+$btnApply.FlatStyle = "Flat"
+$btnApply.Font = New-Object System.Drawing.Font("Segoe UI", 9, [System.Drawing.FontStyle]::Bold)
+$btnApply.Add_Click({
+    try {
+        # Construire le script de nettoyage
+        $scriptContent = @"
+# Script de nettoyage automatique
+`$logFile = "C:\Nettoyage_Log.txt"
+`$timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
+Add-Content -Path `$logFile -Value "[$timestamp] Début du nettoyage automatique"
+
+try {
+"@
+        
+        if ($chkDownloads.Checked) { 
+            $scriptContent += "`n    Remove-Item `"`$env:USERPROFILE\Downloads\*`" -Recurse -Force -ErrorAction SilentlyContinue"
+            $scriptContent += "`n    Add-Content -Path `$logFile -Value `"[$timestamp] Téléchargements nettoyés`""
+        }
+        if ($chkDocuments.Checked) { 
+            $scriptContent += "`n    Remove-Item `"`$env:USERPROFILE\Documents\*`" -Recurse -Force -ErrorAction SilentlyContinue"
+            $scriptContent += "`n    Add-Content -Path `$logFile -Value `"[$timestamp] Documents nettoyés`""
+        }
+        if ($chkPictures.Checked) { 
+            $scriptContent += "`n    Remove-Item `"`$env:USERPROFILE\Pictures\*`" -Recurse -Force -ErrorAction SilentlyContinue"
+            $scriptContent += "`n    Add-Content -Path `$logFile -Value `"[$timestamp] Images nettoyées`""
+        }
+        if ($chkVideos.Checked) { 
+            $scriptContent += "`n    Remove-Item `"`$env:USERPROFILE\Videos\*`" -Recurse -Force -ErrorAction SilentlyContinue"
+            $scriptContent += "`n    Add-Content -Path `$logFile -Value `"[$timestamp] Vidéos nettoyées`""
+        }
+        if ($chkMusic.Checked) { 
+            $scriptContent += "`n    Remove-Item `"`$env:USERPROFILE\Music\*`" -Recurse -Force -ErrorAction SilentlyContinue"
+            $scriptContent += "`n    Add-Content -Path `$logFile -Value `"[$timestamp] Musique nettoyée`""
+        }
+        if ($chkTemp.Checked) { 
+            $scriptContent += "`n    Remove-Item `"`$env:TEMP\*`" -Recurse -Force -ErrorAction SilentlyContinue"
+            $scriptContent += "`n    Remove-Item `"C:\Windows\Temp\*`" -Recurse -Force -ErrorAction SilentlyContinue"
+            $scriptContent += "`n    Add-Content -Path `$logFile -Value `"[$timestamp] Dossiers Temp nettoyés`""
+        }
+        if ($chkRecycleBin.Checked) { 
+            $scriptContent += "`n    Clear-RecycleBin -Force -ErrorAction SilentlyContinue"
+            $scriptContent += "`n    Add-Content -Path `$logFile -Value `"[$timestamp] Corbeille vidée`""
+        }
+        
+        $scriptContent += @"
+
+    Add-Content -Path `$logFile -Value "[$timestamp] Nettoyage terminé avec succès"
+} catch {
+    Add-Content -Path `$logFile -Value "[$timestamp] ERREUR: `$(`$_.Exception.Message)"
+}
+"@
+        
+        # Sauvegarder le script
+        $cleanScriptPath = "C:\Nettoyage.ps1"
+        $scriptContent | Out-File -FilePath $cleanScriptPath -Encoding UTF8 -Force
+        
+        # Supprimer les anciennes tâches
+        schtasks /delete /tn "NettoyageQuotidien" /f 2>$null
+        schtasks /delete /tn "NettoyageStartup" /f 2>$null
+        
+        $tasksCreated = @()
+        
+        # Créer la tâche quotidienne si activée
+        if ($chkEnabled.Checked) {
+            $hour = [int]$numHour.Value
+            $minute = [int]$numMinute.Value
+            $timeStr = "{0:D2}:{1:D2}:00" -f $hour, $minute
+            
+            $taskXml = @"
+<?xml version="1.0" encoding="UTF-16"?>
+<Task version="1.2" xmlns="http://schemas.microsoft.com/windows/2004/02/mit/task">
+  <RegistrationInfo>
+    <Description>Nettoyage automatique quotidien</Description>
+  </RegistrationInfo>
+  <Triggers>
+    <CalendarTrigger>
+      <StartBoundary>2024-01-01T$timeStr</StartBoundary>
+      <Enabled>true</Enabled>
+      <ScheduleByDay>
+        <DaysInterval>1</DaysInterval>
+      </ScheduleByDay>
+    </CalendarTrigger>
+  </Triggers>
+  <Principals>
+    <Principal id="Author">
+      <UserId>$env:USERNAME</UserId>
+      <LogonType>InteractiveToken</LogonType>
+      <RunLevel>HighestAvailable</RunLevel>
+    </Principal>
+  </Principals>
+  <Settings>
+    <MultipleInstancesPolicy>IgnoreNew</MultipleInstancesPolicy>
+    <DisallowStartIfOnBatteries>false</DisallowStartIfOnBatteries>
+    <StopIfGoingOnBatteries>false</StopIfGoingOnBatteries>
+    <AllowHardTerminate>true</AllowHardTerminate>
+    <StartWhenAvailable>true</StartWhenAvailable>
+    <RunOnlyIfNetworkAvailable>false</RunOnlyIfNetworkAvailable>
+    <IdleSettings>
+      <StopOnIdleEnd>false</StopOnIdleEnd>
+      <RestartOnIdle>false</RestartOnIdle>
+    </IdleSettings>
+    <AllowStartOnDemand>true</AllowStartOnDemand>
+    <Enabled>true</Enabled>
+    <Hidden>false</Hidden>
+    <RunOnlyIfIdle>false</RunOnlyIfIdle>
+    <WakeToRun>false</WakeToRun>
+    <ExecutionTimeLimit>PT1H</ExecutionTimeLimit>
+    <Priority>7</Priority>
+  </Settings>
+  <Actions Context="Author">
+    <Exec>
+      <Command>PowerShell.exe</Command>
+      <Arguments>-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File "$cleanScriptPath"</Arguments>
+    </Exec>
+  </Actions>
+</Task>
+"@
+            
+            $xmlPath = "$env:TEMP\NettoyageTask.xml"
+            $taskXml | Out-File -FilePath $xmlPath -Encoding Unicode -Force
+            
+            $result = schtasks /create /tn "NettoyageQuotidien" /xml $xmlPath /f 2>&1
+            
+            if ($LASTEXITCODE -eq 0) {
+                $tasksCreated += "✅ Tâche quotidienne créée pour $timeStr"
+            } else {
+                throw "Erreur lors de la création de la tâche quotidienne: $result"
+            }
+            
+            Remove-Item $xmlPath -Force -ErrorAction SilentlyContinue
+        }
+        
+        # Créer la tâche au démarrage si activée
+        if ($chkStartup.Checked) {
+            $taskXml = @"
+<?xml version="1.0" encoding="UTF-16"?>
+<Task version="1.2" xmlns="http://schemas.microsoft.com/windows/2004/02/mit/task">
+  <RegistrationInfo>
+    <Description>Nettoyage automatique au démarrage</Description>
+  </RegistrationInfo>
+  <Triggers>
+    <BootTrigger>
+      <Enabled>true</Enabled>
+      <Delay>PT2M</Delay>
+    </BootTrigger>
+  </Triggers>
+  <Principals>
+    <Principal id="Author">
+      <UserId>$env:USERNAME</UserId>
+      <LogonType>InteractiveToken</LogonType>
+      <RunLevel>HighestAvailable</RunLevel>
+    </Principal>
+  </Principals>
+  <Settings>
+    <MultipleInstancesPolicy>IgnoreNew</MultipleInstancesPolicy>
+    <DisallowStartIfOnBatteries>false</DisallowStartIfOnBatteries>
+    <StopIfGoingOnBatteries>false</StopIfGoingOnBatteries>
+    <AllowHardTerminate>true</AllowHardTerminate>
+    <StartWhenAvailable>true</StartWhenAvailable>
+    <RunOnlyIfNetworkAvailable>false</RunOnlyIfNetworkAvailable>
+    <IdleSettings>
+      <StopOnIdleEnd>false</StopOnIdleEnd>
+      <RestartOnIdle>false</RestartOnIdle>
+    </IdleSettings>
+    <AllowStartOnDemand>true</AllowStartOnDemand>
+    <Enabled>true</Enabled>
+    <Hidden>false</Hidden>
+    <RunOnlyIfIdle>false</RunOnlyIfIdle>
+    <WakeToRun>false</WakeToRun>
+    <ExecutionTimeLimit>PT1H</ExecutionTimeLimit>
+    <Priority>7</Priority>
+  </Settings>
+  <Actions Context="Author">
+    <Exec>
+      <Command>PowerShell.exe</Command>
+      <Arguments>-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File "$cleanScriptPath"</Arguments>
+    </Exec>
+  </Actions>
+</Task>
+"@
+            
+            $xmlPath = "$env:TEMP\NettoyageStartupTask.xml"
+            $taskXml | Out-File -FilePath $xmlPath -Encoding Unicode -Force
+            
+            $result = schtasks /create /tn "NettoyageStartup" /xml $xmlPath /f 2>&1
+            
+            if ($LASTEXITCODE -eq 0) {
+                $tasksCreated += "✅ Tâche au démarrage créée (délai: 2 minutes)"
+            } else {
+                throw "Erreur lors de la création de la tâche de démarrage: $result"
+            }
+            
+            Remove-Item $xmlPath -Force -ErrorAction SilentlyContinue
+        }
+        
+        # Message de confirmation
+        $msg = "✅ Configuration enregistrée avec succès !`n`n"
+        $msg += "📁 Script sauvegardé dans: C:\Nettoyage.ps1`n`n"
+        
+        if ($tasksCreated.Count -gt 0) {
+            $msg += [string]::Join("`n", $tasksCreated)
+            $msg += "`n`n🔍 Vérification: Ouvrez le Planificateur de tâches Windows pour voir vos tâches."
+        } else {
+            $msg += "⚠️ Aucune tâche planifiée créée (décochez 'Activer' pour ne créer que le script)"
+        }
+        
+        [System.Windows.Forms.MessageBox]::Show($msg, "Succès", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Information)
+        
+    } catch {
+        [System.Windows.Forms.MessageBox]::Show("❌ ERREUR lors de la configuration :`n`n$($_.Exception.Message)`n`nAssurez-vous d'exécuter le programme en tant qu'administrateur.", "Erreur", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Error)
+    }
+})
+$groupActions.Controls.Add($btnApply)
+
+# ====================================
+# BOUTON : EXPORTER CONFIG
+# ====================================
+
+$btnExport = New-Object System.Windows.Forms.Button
+$btnExport.Location = New-Object System.Drawing.Point(400, 30)
+$btnExport.Size = New-Object System.Drawing.Size(180, 40)
+$btnExport.Text = "📤 Exporter config"
+$btnExport.BackColor = [System.Drawing.Color]::FromArgb(23, 162, 184)
+$btnExport.ForeColor = [System.Drawing.Color]::White
+$btnExport.FlatStyle = "Flat"
+$btnExport.Font = New-Object System.Drawing.Font("Segoe UI", 9, [System.Drawing.FontStyle]::Bold)
+$btnExport.Add_Click({
+    $config = @{
+        Downloads = $chkDownloads.Checked
+        Documents = $chkDocuments.Checked
+        Pictures = $chkPictures.Checked
+        Videos = $chkVideos.Checked
+        Music = $chkMusic.Checked
+        Temp = $chkTemp.Checked
+        RecycleBin = $chkRecycleBin.Checked
+        Hour = $numHour.Value
+        Minute = $numMinute.Value
+        Enabled = $chkEnabled.Checked
+        Startup = $chkStartup.Checked
+    }
+    
+    $desktopPath = [Environment]::GetFolderPath("Desktop")
+    $configPath = "$desktopPath\config_nettoyage.json"
+    $config | ConvertTo-Json | Out-File -FilePath $configPath -Encoding UTF8
+    
+    [System.Windows.Forms.MessageBox]::Show("✅ Configuration exportée vers :`n$configPath", "Succès", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Information)
+})
+$groupActions.Controls.Add($btnExport)
+
+# ====================================
+# BOUTON : DÉSACTIVER LA TÂCHE
+# ====================================
+
+$btnDisable = New-Object System.Windows.Forms.Button
+$btnDisable.Location = New-Object System.Drawing.Point(20, 80)
+$btnDisable.Size = New-Object System.Drawing.Size(120, 30)
+$btnDisable.Text = "⏸️ Désactiver"
+$btnDisable.BackColor = [System.Drawing.Color]::FromArgb(255, 193, 7)
+$btnDisable.FlatStyle = "Flat"
+$btnDisable.Add_Click({
+    schtasks /change /tn "NettoyageQuotidien" /disable 2>$null
+    [System.Windows.Forms.MessageBox]::Show("⏸️ Tâche désactivée temporairement", "Info", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Information)
+})
+$groupActions.Controls.Add($btnDisable)
+
+# ====================================
+# BOUTON : RÉACTIVER LA TÂCHE
+# ====================================
+
+$btnEnable = New-Object System.Windows.Forms.Button
+$btnEnable.Location = New-Object System.Drawing.Point(150, 80)
+$btnEnable.Size = New-Object System.Drawing.Size(120, 30)
+$btnEnable.Text = "▶️ Réactiver"
+$btnEnable.BackColor = [System.Drawing.Color]::FromArgb(0, 123, 255)
+$btnEnable.ForeColor = [System.Drawing.Color]::White
+$btnEnable.FlatStyle = "Flat"
+$btnEnable.Add_Click({
+    schtasks /change /tn "NettoyageQuotidien" /enable 2>$null
+    [System.Windows.Forms.MessageBox]::Show("▶️ Tâche réactivée", "Info", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Information)
+})
+$groupActions.Controls.Add($btnEnable)
+
+# ====================================
+# BOUTON : SUPPRIMER LA TÂCHE
+# ====================================
+
+$btnDelete = New-Object System.Windows.Forms.Button
+$btnDelete.Location = New-Object System.Drawing.Point(280, 80)
+$btnDelete.Size = New-Object System.Drawing.Size(130, 30)
+$btnDelete.Text = "🗑️ Supprimer tâche"
+$btnDelete.BackColor = [System.Drawing.Color]::FromArgb(108, 117, 125)
+$btnDelete.ForeColor = [System.Drawing.Color]::White
+$btnDelete.FlatStyle = "Flat"
+$btnDelete.Add_Click({
+    $result = [System.Windows.Forms.MessageBox]::Show("Supprimer la tâche automatique ?", "Confirmation", [System.Windows.Forms.MessageBoxButtons]::YesNo, [System.Windows.Forms.MessageBoxIcon]::Question)
+    if ($result -eq [System.Windows.Forms.DialogResult]::Yes) {
+        schtasks /delete /tn "NettoyageQuotidien" /f 2>$null
+        schtasks /delete /tn "NettoyageStartup" /f 2>$null
+        [System.Windows.Forms.MessageBox]::Show("🗑️ Tâche automatique supprimée", "Info", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Information)
+    }
+})
+$groupActions.Controls.Add($btnDelete)
+
+# ====================================
+# BOUTON : LOG D'ACTIVITÉ
+# ====================================
+
+$btnLog = New-Object System.Windows.Forms.Button
+$btnLog.Location = New-Object System.Drawing.Point(420, 80)
+$btnLog.Size = New-Object System.Drawing.Size(160, 30)
+$btnLog.Text = "📊 Voir les logs"
+$btnLog.BackColor = [System.Drawing.Color]::FromArgb(108, 117, 125)
+$btnLog.ForeColor = [System.Drawing.Color]::White
+$btnLog.FlatStyle = "Flat"
+$btnLog.Add_Click({
+    $logPath = "C:\Nettoyage_Log.txt"
+    if (Test-Path $logPath) {
+        Start-Process notepad.exe -ArgumentList $logPath
+    } else {
+        [System.Windows.Forms.MessageBox]::Show("Aucun log trouvé.", "Info", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Information)
+    }
+})
+$groupActions.Controls.Add($btnLog)
+
+# ====================================# ====================================
+# SCRIPT DE NETTOYAGE AUTOMATIQUE PC
+# Version Portable avec Installation Facile
+# ====================================
+
+Add-Type -AssemblyName System.Windows.Forms
+Add-Type -AssemblyName System.Drawing
+
+# ====================================
+# INSTALLATION AUTOMATIQUE AU DÉMARRAGE
+# ====================================
+
+$scriptPath = "$env:USERPROFILE\Documents\NettoyageAutoPC.ps1"
+$desktopPath = [Environment]::GetFolderPath("Desktop")
+$shortcutPath = Join-Path $desktopPath "Nettoyage Auto PC.lnk"
+
+# Fonction pour installer le script
+function Install-Script {
+    try {
+        # Si le script actuel n'est PAS déjà dans Documents, on le copie
+        if ($PSCommandPath -and (Test-Path $PSCommandPath) -and $PSCommandPath -ne $scriptPath) {
+            Copy-Item -Path $PSCommandPath -Destination $scriptPath -Force -ErrorAction Stop
+            Write-Host "✅ Script installé dans Documents" -ForegroundColor Green
+        }
+        
+        # Créer automatiquement le raccourci si le script existe
+        if (Test-Path $scriptPath) {
+            $WScriptShell = New-Object -ComObject WScript.Shell
+            $Shortcut = $WScriptShell.CreateShortcut($shortcutPath)
+            $Shortcut.TargetPath = "PowerShell.exe"
+            $Shortcut.Arguments = "-NoProfile -ExecutionPolicy Bypass -WindowStyle Normal -File `"$scriptPath`""
+            $Shortcut.WorkingDirectory = [System.IO.Path]::GetDirectoryName($scriptPath)
+            $Shortcut.Description = "Nettoyage Automatique PC - Cliquez pour lancer"
+            $Shortcut.IconLocation = "shell32.dll,47"
+            $Shortcut.Save()
+            [System.Runtime.Interopservices.Marshal]::ReleaseComObject($WScriptShell) | Out-Null
+            Write-Host "✅ Raccourci créé sur le Bureau" -ForegroundColor Green
+        }
+    } catch {
+        Write-Host "⚠️ Installation automatique échouée" -ForegroundColor Yellow
+    }
+}
+
+# Installer automatiquement au premier lancement
+Install-Script
+
+# ====================================
+# INTERFACE GRAPHIQUE
+# ====================================
+
+# Créer le formulaire principal
+$form = New-Object System.Windows.Forms.Form
+$form.Text = "🗑️ Gestionnaire de Nettoyage Automatique PC"
+$form.Size = New-Object System.Drawing.Size(650, 750)
+$form.StartPosition = "CenterScreen"
+$form.FormBorderStyle = "FixedDialog"
+$form.MaximizeBox = $false
+$form.BackColor = [System.Drawing.Color]::White
+
+# Titre
+$lblTitle = New-Object System.Windows.Forms.Label
+$lblTitle.Location = New-Object System.Drawing.Point(20, 20)
+$lblTitle.Size = New-Object System.Drawing.Size(600, 30)
+$lblTitle.Text = "GESTIONNAIRE DE NETTOYAGE AUTOMATIQUE"
+$lblTitle.Font = New-Object System.Drawing.Font("Segoe UI", 12, [System.Drawing.FontStyle]::Bold)
+$lblTitle.ForeColor = [System.Drawing.Color]::FromArgb(0, 120, 212)
+$form.Controls.Add($lblTitle)
+
+# ====================================
+# GROUPE : DOSSIERS À NETTOYER
+# ====================================
+
+$groupFolders = New-Object System.Windows.Forms.GroupBox
+$groupFolders.Location = New-Object System.Drawing.Point(20, 60)
+$groupFolders.Size = New-Object System.Drawing.Size(600, 180)
+$groupFolders.Text = "📁 Dossiers à nettoyer"
+$groupFolders.Font = New-Object System.Drawing.Font("Segoe UI", 10, [System.Drawing.FontStyle]::Bold)
+$form.Controls.Add($groupFolders)
+
+# Checkboxes pour chaque dossier
+$chkDownloads = New-Object System.Windows.Forms.CheckBox
+$chkDownloads.Location = New-Object System.Drawing.Point(20, 30)
+$chkDownloads.Size = New-Object System.Drawing.Size(200, 25)
+$chkDownloads.Text = "Téléchargements"
+$chkDownloads.Checked = $true
+$groupFolders.Controls.Add($chkDownloads)
+
+$chkDocuments = New-Object System.Windows.Forms.CheckBox
+$chkDocuments.Location = New-Object System.Drawing.Point(20, 60)
+$chkDocuments.Size = New-Object System.Drawing.Size(200, 25)
+$chkDocuments.Text = "Documents"
+$chkDocuments.Checked = $true
+$groupFolders.Controls.Add($chkDocuments)
+
+$chkPictures = New-Object System.Windows.Forms.CheckBox
+$chkPictures.Location = New-Object System.Drawing.Point(20, 90)
+$chkPictures.Size = New-Object System.Drawing.Size(200, 25)
+$chkPictures.Text = "Images"
+$chkPictures.Checked = $true
+$groupFolders.Controls.Add($chkPictures)
+
+$chkVideos = New-Object System.Windows.Forms.CheckBox
+$chkVideos.Location = New-Object System.Drawing.Point(20, 120)
+$chkVideos.Size = New-Object System.Drawing.Size(200, 25)
+$chkVideos.Text = "Vidéos"
+$chkVideos.Checked = $true
+$groupFolders.Controls.Add($chkVideos)
+
+$chkMusic = New-Object System.Windows.Forms.CheckBox
+$chkMusic.Location = New-Object System.Drawing.Point(20, 150)
+$chkMusic.Size = New-Object System.Drawing.Size(200, 25)
+$chkMusic.Text = "Musique"
+$chkMusic.Checked = $true
+$groupFolders.Controls.Add($chkMusic)
+
+$chkRecycleBin = New-Object System.Windows.Forms.CheckBox
+$chkRecycleBin.Location = New-Object System.Drawing.Point(250, 30)
+$chkRecycleBin.Size = New-Object System.Drawing.Size(200, 25)
+$chkRecycleBin.Text = "Vider la corbeille"
+$chkRecycleBin.Checked = $true
+$groupFolders.Controls.Add($chkRecycleBin)
+
+$chkTemp = New-Object System.Windows.Forms.CheckBox
+$chkTemp.Location = New-Object System.Drawing.Point(250, 60)
+$chkTemp.Size = New-Object System.Drawing.Size(200, 25)
+$chkTemp.Text = "Dossiers Temp"
+$chkTemp.Checked = $true
+$groupFolders.Controls.Add($chkTemp)
+
+# ====================================
+# GROUPE : PLANIFICATION
+# ====================================
+
+$groupSchedule = New-Object System.Windows.Forms.GroupBox
+$groupSchedule.Location = New-Object System.Drawing.Point(20, 250)
+$groupSchedule.Size = New-Object System.Drawing.Size(600, 150)
+$groupSchedule.Text = "⏰ Planification automatique"
+$groupSchedule.Font = New-Object System.Drawing.Font("Segoe UI", 10, [System.Drawing.FontStyle]::Bold)
+$form.Controls.Add($groupSchedule)
+
+$lblHour = New-Object System.Windows.Forms.Label
+$lblHour.Location = New-Object System.Drawing.Point(20, 35)
+$lblHour.Size = New-Object System.Drawing.Size(150, 25)
+$lblHour.Text = "Heure de nettoyage :"
+$groupSchedule.Controls.Add($lblHour)
+
+$numHour = New-Object System.Windows.Forms.NumericUpDown
+$numHour.Location = New-Object System.Drawing.Point(170, 33)
+$numHour.Size = New-Object System.Drawing.Size(60, 25)
+$numHour.Minimum = 0
+$numHour.Maximum = 23
+$numHour.Value = 18
+$groupSchedule.Controls.Add($numHour)
+
+$lblColon = New-Object System.Windows.Forms.Label
+$lblColon.Location = New-Object System.Drawing.Point(235, 35)
+$lblColon.Size = New-Object System.Drawing.Size(10, 25)
+$lblColon.Text = ":"
+$lblColon.Font = New-Object System.Drawing.Font("Segoe UI", 10, [System.Drawing.FontStyle]::Bold)
+$groupSchedule.Controls.Add($lblColon)
+
+$numMinute = New-Object System.Windows.Forms.NumericUpDown
+$numMinute.Location = New-Object System.Drawing.Point(250, 33)
+$numMinute.Size = New-Object System.Drawing.Size(60, 25)
+$numMinute.Minimum = 0
+$numMinute.Maximum = 59
+$numMinute.Value = 0
+$groupSchedule.Controls.Add($numMinute)
+
+$chkEnabled = New-Object System.Windows.Forms.CheckBox
+$chkEnabled.Location = New-Object System.Drawing.Point(20, 70)
+$chkEnabled.Size = New-Object System.Drawing.Size(300, 25)
+$chkEnabled.Text = "Activer le nettoyage automatique quotidien"
+$chkEnabled.Checked = $true
+$groupSchedule.Controls.Add($chkEnabled)
+
+$chkStartup = New-Object System.Windows.Forms.CheckBox
+$chkStartup.Location = New-Object System.Drawing.Point(20, 100)
+$chkStartup.Size = New-Object System.Drawing.Size(350, 25)
+$chkStartup.Text = "Nettoyer aussi au démarrage de Windows"
+$chkStartup.Checked = $false
+$groupSchedule.Controls.Add($chkStartup)
+
+# ====================================
+# GROUPE : INSTALLATION RAPIDE
+# ====================================
+
+$groupPortable = New-Object System.Windows.Forms.GroupBox
+$groupPortable.Location = New-Object System.Drawing.Point(20, 410)
+$groupPortable.Size = New-Object System.Drawing.Size(600, 100)
+$groupPortable.Text = "💾 Installation rapide"
+$groupPortable.Font = New-Object System.Drawing.Font("Segoe UI", 10, [System.Drawing.FontStyle]::Bold)
+$form.Controls.Add($groupPortable)
+
+$lblPortableInfo = New-Object System.Windows.Forms.Label
+$lblPortableInfo.Location = New-Object System.Drawing.Point(20, 30)
+$lblPortableInfo.Size = New-Object System.Drawing.Size(560, 60)
+$lblPortableInfo.Text = "✅ Installation automatique effectuée !`n📁 Script installé dans : $scriptPath`n🔗 Raccourci créé sur le Bureau : 'Nettoyage Auto PC'`n`nSi le raccourci ne fonctionne pas, cliquez sur le bouton ci-dessous :"
+$lblPortableInfo.Font = New-Object System.Drawing.Font("Segoe UI", 8)
+$groupPortable.Controls.Add($lblPortableInfo)
+
+# Vérifier si l'installation a réussi
+if (-not (Test-Path $scriptPath) -or -not (Test-Path $shortcutPath)) {
+    $lblPortableInfo.Text = "⚠️ Installation incomplète. Cliquez sur le bouton pour installer :"
+    $lblPortableInfo.ForeColor = [System.Drawing.Color]::FromArgb(220, 53, 69)
+}
+
+# ====================================
+# GROUPE : ACTIONS
+# ====================================
+
+$groupActions = New-Object System.Windows.Forms.GroupBox
+$groupActions.Location = New-Object System.Drawing.Point(20, 520)
+$groupActions.Size = New-Object System.Drawing.Size(600, 160)
+$groupActions.Text = "🎯 Actions"
+$groupActions.Font = New-Object System.Drawing.Font("Segoe UI", 10, [System.Drawing.FontStyle]::Bold)
+$form.Controls.Add($groupActions)
+
+# ====================================
+# BOUTON : INSTALLER / RÉINSTALLER
+# ====================================
+
+$btnInstall = New-Object System.Windows.Forms.Button
+$btnInstall.Location = New-Object System.Drawing.Point(450, 35)
+$btnInstall.Size = New-Object System.Drawing.Size(120, 50)
+$btnInstall.Text = "🔧 (Ré)Installer"
+$btnInstall.BackColor = [System.Drawing.Color]::FromArgb(111, 66, 193)
+$btnInstall.ForeColor = [System.Drawing.Color]::White
+$btnInstall.FlatStyle = "Flat"
+$btnInstall.Font = New-Object System.Drawing.Font("Segoe UI", 9, [System.Drawing.FontStyle]::Bold)
+$btnInstall.Add_Click({
+    try {
+        # Copier le script
+        if ($PSCommandPath -and (Test-Path $PSCommandPath)) {
+            Copy-Item -Path $PSCommandPath -Destination $scriptPath -Force
+        }
+        
+        # Créer le raccourci
+        $WScriptShell = New-Object -ComObject WScript.Shell
+        $Shortcut = $WScriptShell.CreateShortcut($shortcutPath)
+        $Shortcut.TargetPath = "PowerShell.exe"
+        $Shortcut.Arguments = "-NoProfile -ExecutionPolicy Bypass -WindowStyle Normal -File `"$scriptPath`""
+        $Shortcut.WorkingDirectory = [System.IO.Path]::GetDirectoryName($scriptPath)
+        $Shortcut.Description = "Nettoyage Automatique PC - Double-cliquez pour lancer"
+        $Shortcut.IconLocation = "shell32.dll,47"
+        $Shortcut.Save()
+        [System.Runtime.Interopservices.Marshal]::ReleaseComObject($WScriptShell) | Out-Null
+        
+        # Mettre à jour l'affichage
+        $lblPortableInfo.Text = "✅ Installation réussie !`n📁 Script : $scriptPath`n🔗 Raccourci : Bureau\Nettoyage Auto PC.lnk`n`n👉 Double-cliquez sur le raccourci pour lancer le programme !"
+        $lblPortableInfo.ForeColor = [System.Drawing.Color]::FromArgb(40, 167, 69)
+        
+        [System.Windows.Forms.MessageBox]::Show("✅ Installation réussie !`n`n📁 Le script est installé dans :`n$scriptPath`n`n🔗 Le raccourci 'Nettoyage Auto PC' est sur votre Bureau`n`n👉 Fermez cette fenêtre et double-cliquez sur le raccourci pour lancer le programme !", "Installation réussie", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Information)
+    } catch {
+        [System.Windows.Forms.MessageBox]::Show("❌ Erreur d'installation :`n`n$($_.Exception.Message)", "Erreur", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Error)
+    }
+})
+$groupPortable.Controls.Add($btnInstall)
+
+# ====================================
+# BOUTON : NETTOYER MAINTENANT
+# ====================================
+
+$btnCleanNow = New-Object System.Windows.Forms.Button
+$btnCleanNow.Location = New-Object System.Drawing.Point(20, 30)
+$btnCleanNow.Size = New-Object System.Drawing.Size(180, 40)
+$btnCleanNow.Text = "🗑️ NETTOYER MAINTENANT"
+$btnCleanNow.BackColor = [System.Drawing.Color]::FromArgb(220, 53, 69)
+$btnCleanNow.ForeColor = [System.Drawing.Color]::White
+$btnCleanNow.FlatStyle = "Flat"
+$btnCleanNow.Font = New-Object System.Drawing.Font("Segoe UI", 9, [System.Drawing.FontStyle]::Bold)
+$btnCleanNow.Add_Click({
+    $result = [System.Windows.Forms.MessageBox]::Show(
+        "⚠️ ATTENTION : Cette action va supprimer DÉFINITIVEMENT tous les fichiers des dossiers sélectionnés !`n`nContinuer ?",
+        "Confirmation",
+        [System.Windows.Forms.MessageBoxButtons]::YesNo,
+        [System.Windows.Forms.MessageBoxIcon]::Warning
+    )
+    
+    if ($result -eq [System.Windows.Forms.DialogResult]::Yes) {
+        if ($chkDownloads.Checked) { Remove-Item "$env:USERPROFILE\Downloads\*" -Recurse -Force -ErrorAction SilentlyContinue }
+        if ($chkDocuments.Checked) { Remove-Item "$env:USERPROFILE\Documents\*" -Recurse -Force -ErrorAction SilentlyContinue }
+        if ($chkPictures.Checked) { Remove-Item "$env:USERPROFILE\Pictures\*" -Recurse -Force -ErrorAction SilentlyContinue }
+        if ($chkVideos.Checked) { Remove-Item "$env:USERPROFILE\Videos\*" -Recurse -Force -ErrorAction SilentlyContinue }
+        if ($chkMusic.Checked) { Remove-Item "$env:USERPROFILE\Music\*" -Recurse -Force -ErrorAction SilentlyContinue }
+        if ($chkTemp.Checked) { 
+            Remove-Item "$env:TEMP\*" -Recurse -Force -ErrorAction SilentlyContinue 
+            Remove-Item "C:\Windows\Temp\*" -Recurse -Force -ErrorAction SilentlyContinue
+        }
+        if ($chkRecycleBin.Checked) { Clear-RecycleBin -Force -ErrorAction SilentlyContinue }
+        
+        [System.Windows.Forms.MessageBox]::Show("✅ Nettoyage terminé !", "Succès", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Information)
+    }
+})
+$groupActions.Controls.Add($btnCleanNow)
+
+# ====================================
+# BOUTON : APPLIQUER LA PLANIFICATION
+# ====================================
+
+$btnApply = New-Object System.Windows.Forms.Button
+$btnApply.Location = New-Object System.Drawing.Point(210, 30)
+$btnApply.Size = New-Object System.Drawing.Size(180, 40)
+$btnApply.Text = "💾 APPLIQUER LA CONFIG"
+$btnApply.BackColor = [System.Drawing.Color]::FromArgb(40, 167, 69)
+$btnApply.ForeColor = [System.Drawing.Color]::White
+$btnApply.FlatStyle = "Flat"
+$btnApply.Font = New-Object System.Drawing.Font("Segoe UI", 9, [System.Drawing.FontStyle]::Bold)
+$btnApply.Add_Click({
+    try {
+        # Construire le script de nettoyage
+        $scriptContent = @"
+# Script de nettoyage automatique
+`$logFile = "C:\Nettoyage_Log.txt"
+`$timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
+Add-Content -Path `$logFile -Value "[$timestamp] Début du nettoyage automatique"
+
+try {
+"@
+        
+        if ($chkDownloads.Checked) { 
+            $scriptContent += "`n    Remove-Item `"`$env:USERPROFILE\Downloads\*`" -Recurse -Force -ErrorAction SilentlyContinue"
+            $scriptContent += "`n    Add-Content -Path `$logFile -Value `"[$timestamp] Téléchargements nettoyés`""
+        }
+        if ($chkDocuments.Checked) { 
+            $scriptContent += "`n    Remove-Item `"`$env:USERPROFILE\Documents\*`" -Recurse -Force -ErrorAction SilentlyContinue"
+            $scriptContent += "`n    Add-Content -Path `$logFile -Value `"[$timestamp] Documents nettoyés`""
+        }
+        if ($chkPictures.Checked) { 
+            $scriptContent += "`n    Remove-Item `"`$env:USERPROFILE\Pictures\*`" -Recurse -Force -ErrorAction SilentlyContinue"
+            $scriptContent += "`n    Add-Content -Path `$logFile -Value `"[$timestamp] Images nettoyées`""
+        }
+        if ($chkVideos.Checked) { 
+            $scriptContent += "`n    Remove-Item `"`$env:USERPROFILE\Videos\*`" -Recurse -Force -ErrorAction SilentlyContinue"
+            $scriptContent += "`n    Add-Content -Path `$logFile -Value `"[$timestamp] Vidéos nettoyées`""
+        }
+        if ($chkMusic.Checked) { 
+            $scriptContent += "`n    Remove-Item `"`$env:USERPROFILE\Music\*`" -Recurse -Force -ErrorAction SilentlyContinue"
+            $scriptContent += "`n    Add-Content -Path `$logFile -Value `"[$timestamp] Musique nettoyée`""
+        }
+        if ($chkTemp.Checked) { 
+            $scriptContent += "`n    Remove-Item `"`$env:TEMP\*`" -Recurse -Force -ErrorAction SilentlyContinue"
+            $scriptContent += "`n    Remove-Item `"C:\Windows\Temp\*`" -Recurse -Force -ErrorAction SilentlyContinue"
+            $scriptContent += "`n    Add-Content -Path `$logFile -Value `"[$timestamp] Dossiers Temp nettoyés`""
+        }
+        if ($chkRecycleBin.Checked) { 
+            $scriptContent += "`n    Clear-RecycleBin -Force -ErrorAction SilentlyContinue"
+            $scriptContent += "`n    Add-Content -Path `$logFile -Value `"[$timestamp] Corbeille vidée`""
+        }
+        
+        $scriptContent += @"
+
+    Add-Content -Path `$logFile -Value "[$timestamp] Nettoyage terminé avec succès"
+} catch {
+    Add-Content -Path `$logFile -Value "[$timestamp] ERREUR: `$(`$_.Exception.Message)"
+}
+"@
+        
+        # Sauvegarder le script
+        $cleanScriptPath = "C:\Nettoyage.ps1"
+        $scriptContent | Out-File -FilePath $cleanScriptPath -Encoding UTF8 -Force
+        
+        # Supprimer les anciennes tâches
+        schtasks /delete /tn "NettoyageQuotidien" /f 2>$null
+        schtasks /delete /tn "NettoyageStartup" /f 2>$null
+        
+        $tasksCreated = @()
+        
+        # Créer la tâche quotidienne si activée
+        if ($chkEnabled.Checked) {
+            $hour = [int]$numHour.Value
+            $minute = [int]$numMinute.Value
+            $timeStr = "{0:D2}:{1:D2}:00" -f $hour, $minute
+            
+            $taskXml = @"
+<?xml version="1.0" encoding="UTF-16"?>
+<Task version="1.2" xmlns="http://schemas.microsoft.com/windows/2004/02/mit/task">
+  <RegistrationInfo>
+    <Description>Nettoyage automatique quotidien</Description>
+  </RegistrationInfo>
+  <Triggers>
+    <CalendarTrigger>
+      <StartBoundary>2024-01-01T$timeStr</StartBoundary>
+      <Enabled>true</Enabled>
+      <ScheduleByDay>
+        <DaysInterval>1</DaysInterval>
+      </ScheduleByDay>
+    </CalendarTrigger>
+  </Triggers>
+  <Principals>
+    <Principal id="Author">
+      <UserId>$env:USERNAME</UserId>
+      <LogonType>InteractiveToken</LogonType>
+      <RunLevel>HighestAvailable</RunLevel>
+    </Principal>
+  </Principals>
+  <Settings>
+    <MultipleInstancesPolicy>IgnoreNew</MultipleInstancesPolicy>
+    <DisallowStartIfOnBatteries>false</DisallowStartIfOnBatteries>
+    <StopIfGoingOnBatteries>false</StopIfGoingOnBatteries>
+    <AllowHardTerminate>true</AllowHardTerminate>
+    <StartWhenAvailable>true</StartWhenAvailable>
+    <RunOnlyIfNetworkAvailable>false</RunOnlyIfNetworkAvailable>
+    <IdleSettings>
+      <StopOnIdleEnd>false</StopOnIdleEnd>
+      <RestartOnIdle>false</RestartOnIdle>
+    </IdleSettings>
+    <AllowStartOnDemand>true</AllowStartOnDemand>
+    <Enabled>true</Enabled>
+    <Hidden>false</Hidden>
+    <RunOnlyIfIdle>false</RunOnlyIfIdle>
+    <WakeToRun>false</WakeToRun>
+    <ExecutionTimeLimit>PT1H</ExecutionTimeLimit>
+    <Priority>7</Priority>
+  </Settings>
+  <Actions Context="Author">
+    <Exec>
+      <Command>PowerShell.exe</Command>
+      <Arguments>-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File "$cleanScriptPath"</Arguments>
+    </Exec>
+  </Actions>
+</Task>
+"@
+            
+            $xmlPath = "$env:TEMP\NettoyageTask.xml"
+            $taskXml | Out-File -FilePath $xmlPath -Encoding Unicode -Force
+            
+            $result = schtasks /create /tn "NettoyageQuotidien" /xml $xmlPath /f 2>&1
+            
+            if ($LASTEXITCODE -eq 0) {
+                $tasksCreated += "✅ Tâche quotidienne créée pour $timeStr"
+            } else {
+                throw "Erreur lors de la création de la tâche quotidienne: $result"
+            }
+            
+            Remove-Item $xmlPath -Force -ErrorAction SilentlyContinue
+        }
+        
+        # Créer la tâche au démarrage si activée
+        if ($chkStartup.Checked) {
+            $taskXml = @"
+<?xml version="1.0" encoding="UTF-16"?>
+<Task version="1.2" xmlns="http://schemas.microsoft.com/windows/2004/02/mit/task">
+  <RegistrationInfo>
+    <Description>Nettoyage automatique au démarrage</Description>
+  </RegistrationInfo>
+  <Triggers>
+    <BootTrigger>
+      <Enabled>true</Enabled>
+      <Delay>PT2M</Delay>
+    </BootTrigger>
+  </Triggers>
+  <Principals>
+    <Principal id="Author">
+      <UserId>$env:USERNAME</UserId>
+      <LogonType>InteractiveToken</LogonType>
+      <RunLevel>HighestAvailable</RunLevel>
+    </Principal>
+  </Principals>
+  <Settings>
+    <MultipleInstancesPolicy>IgnoreNew</MultipleInstancesPolicy>
+    <DisallowStartIfOnBatteries>false</DisallowStartIfOnBatteries>
+    <StopIfGoingOnBatteries>false</StopIfGoingOnBatteries>
+    <AllowHardTerminate>true</AllowHardTerminate>
+    <StartWhenAvailable>true</StartWhenAvailable>
+    <RunOnlyIfNetworkAvailable>false</RunOnlyIfNetworkAvailable>
+    <IdleSettings>
+      <StopOnIdleEnd>false</StopOnIdleEnd>
+      <RestartOnIdle>false</RestartOnIdle>
+    </IdleSettings>
+    <AllowStartOnDemand>true</AllowStartOnDemand>
+    <Enabled>true</Enabled>
+    <Hidden>false</Hidden>
+    <RunOnlyIfIdle>false</RunOnlyIfIdle>
+    <WakeToRun>false</WakeToRun>
+    <ExecutionTimeLimit>PT1H</ExecutionTimeLimit>
+    <Priority>7</Priority>
+  </Settings>
+  <Actions Context="Author">
+    <Exec>
+      <Command>PowerShell.exe</Command>
+      <Arguments>-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File "$cleanScriptPath"</Arguments>
+    </Exec>
+  </Actions>
+</Task>
+"@
+            
+            $xmlPath = "$env:TEMP\NettoyageStartupTask.xml"
+            $taskXml | Out-File -FilePath $xmlPath -Encoding Unicode -Force
+            
+            $result = schtasks /create /tn "NettoyageStartup" /xml $xmlPath /f 2>&1
+            
+            if ($LASTEXITCODE -eq 0) {
+                $tasksCreated += "✅ Tâche au démarrage créée (délai: 2 minutes)"
+            } else {
+                throw "Erreur lors de la création de la tâche de démarrage: $result"
+            }
+            
+            Remove-Item $xmlPath -Force -ErrorAction SilentlyContinue
+        }
+        
+        # Message de confirmation
+        $msg = "✅ Configuration enregistrée avec succès !`n`n"
+        $msg += "📁 Script sauvegardé dans: C:\Nettoyage.ps1`n`n"
+        
+        if ($tasksCreated.Count -gt 0) {
+            $msg += [string]::Join("`n", $tasksCreated)
+            $msg += "`n`n🔍 Vérification: Ouvrez le Planificateur de tâches Windows pour voir vos tâches."
+        } else {
+            $msg += "⚠️ Aucune tâche planifiée créée (décochez 'Activer' pour ne créer que le script)"
+        }
+        
+        [System.Windows.Forms.MessageBox]::Show($msg, "Succès", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Information)
+        
+    } catch {
+        [System.Windows.Forms.MessageBox]::Show("❌ ERREUR lors de la configuration :`n`n$($_.Exception.Message)`n`nAssurez-vous d'exécuter le programme en tant qu'administrateur.", "Erreur", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Error)
+    }
+})
+$groupActions.Controls.Add($btnApply)
+
+# ====================================
+# BOUTON : EXPORTER CONFIG
+# ====================================
+
+$btnExport = New-Object System.Windows.Forms.Button
+$btnExport.Location = New-Object System.Drawing.Point(400, 30)
+$btnExport.Size = New-Object System.Drawing.Size(180, 40)
+$btnExport.Text = "📤 Exporter config"
+$btnExport.BackColor = [System.Drawing.Color]::FromArgb(23, 162, 184)
+$btnExport.ForeColor = [System.Drawing.Color]::White
+$btnExport.FlatStyle = "Flat"
+$btnExport.Font = New-Object System.Drawing.Font("Segoe UI", 9, [System.Drawing.FontStyle]::Bold)
+$btnExport.Add_Click({
+    $config = @{
+        Downloads = $chkDownloads.Checked
+        Documents = $chkDocuments.Checked
+        Pictures = $chkPictures.Checked
+        Videos = $chkVideos.Checked
+        Music = $chkMusic.Checked
+        Temp = $chkTemp.Checked
+        RecycleBin = $chkRecycleBin.Checked
+        Hour = $numHour.Value
+        Minute = $numMinute.Value
+        Enabled = $chkEnabled.Checked
+        Startup = $chkStartup.Checked
+    }
+    
+    $desktopPath = [Environment]::GetFolderPath("Desktop")
+    $configPath = "$desktopPath\config_nettoyage.json"
+    $config | ConvertTo-Json | Out-File -FilePath $configPath -Encoding UTF8
+    
+    [System.Windows.Forms.MessageBox]::Show("✅ Configuration exportée vers :`n$configPath", "Succès", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Information)
+})
+$groupActions.Controls.Add($btnExport)
+
+# ====================================
+# BOUTON : DÉSACTIVER LA TÂCHE
+# ====================================
+
+$btnDisable = New-Object System.Windows.Forms.Button
+$btnDisable.Location = New-Object System.Drawing.Point(20, 80)
+$btnDisable.Size = New-Object System.Drawing.Size(120, 30)
+$btnDisable.Text = "⏸️ Désactiver"
+$btnDisable.BackColor = [System.Drawing.Color]::FromArgb(255, 193, 7)
+$btnDisable.FlatStyle = "Flat"
+$btnDisable.Add_Click({
+    schtasks /change /tn "NettoyageQuotidien" /disable 2>$null
+    [System.Windows.Forms.MessageBox]::Show("⏸️ Tâche désactivée temporairement", "Info", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Information)
+})
+$groupActions.Controls.Add($btnDisable)
+
+# ====================================
+# BOUTON : RÉACTIVER LA TÂCHE
+# ====================================
+
+$btnEnable = New-Object System.Windows.Forms.Button
+$btnEnable.Location = New-Object System.Drawing.Point(150, 80)
+$btnEnable.Size = New-Object System.Drawing.Size(120, 30)
+$btnEnable.Text = "▶️ Réactiver"
+$btnEnable.BackColor = [System.Drawing.Color]::FromArgb(0, 123, 255)
+$btnEnable.ForeColor = [System.Drawing.Color]::White
+$btnEnable.FlatStyle = "Flat"
+$btnEnable.Add_Click({
+    schtasks /change /tn "NettoyageQuotidien" /enable 2>$null
+    [System.Windows.Forms.MessageBox]::Show("▶️ Tâche réactivée", "Info", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Information)
+})
+$groupActions.Controls.Add($btnEnable)
+
+# ====================================
+# BOUTON : SUPPRIMER LA TÂCHE
+# ====================================
+
+$btnDelete = New-Object System.Windows.Forms.Button
+$btnDelete.Location = New-Object System.Drawing.Point(280, 80)
+$btnDelete.Size = New-Object System.Drawing.Size(130, 30)
+$btnDelete.Text = "🗑️ Supprimer tâche"
+$btnDelete.BackColor = [System.Drawing.Color]::FromArgb(108, 117, 125)
+$btnDelete.ForeColor = [System.Drawing.Color]::White
+$btnDelete.FlatStyle = "Flat"
+$btnDelete.Add_Click({
+    $result = [System.Windows.Forms.MessageBox]::Show("Supprimer la tâche automatique ?", "Confirmation", [System.Windows.Forms.MessageBoxButtons]::YesNo, [System.Windows.Forms.MessageBoxIcon]::Question)
+    if ($result -eq [System.Windows.Forms.DialogResult]::Yes) {
+        schtasks /delete /tn "NettoyageQuotidien" /f 2>$null
+        schtasks /delete /tn "NettoyageStartup" /f 2>$null
+        [System.Windows.Forms.MessageBox]::Show("🗑️ Tâche automatique supprimée", "Info", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Information)
+    }
+})
+$groupActions.Controls.Add($btnDelete)
+
+# ====================================
+# BOUTON : LOG D'ACTIVITÉ
+# ====================================
+
+$btnLog = New-Object System.Windows.Forms.Button
+$btnLog.Location = New-Object System.Drawing.Point(420, 80)
+$btnLog.Size = New-Object System.Drawing.Size(160, 30)
+$btnLog.Text = "📊 Voir les logs"
+$btnLog.BackColor = [System.Drawing.Color]::FromArgb(108, 117, 125)
+$btnLog.ForeColor = [System.Drawing.Color]::White
+$btnLog.FlatStyle = "Flat"
+$btnLog.Add_Click({
+    $logPath = "C:\Nettoyage_Log.txt"
+    if (Test-Path $logPath) {
+        Start-Process notepad.exe -ArgumentList $logPath
+    } else {
+        [System.Windows.Forms.MessageBox]::Show("Aucun log trouvé.", "Info", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Information)
+    }
+})
+$groupActions.Controls.Add($btnLog)
+
+# ====================================
+# STATUT FINAL
+# ====================================
+
+$lblStatus = New-Object System.Windows.Forms.Label
+$lblStatus.Location = New-Object System.Drawing.Point(20, 690)
+$lblStatus.Size = New-Object System.Drawing.Size(600, 40)
+$lblStatus.Text = "✅ Programme prêt à l'emploi | ⚠️ Le Bureau n'est jamais nettoyé | 📌 Utilisez le raccourci Bureau pour un accès rapide"
+$lblStatus.ForeColor = [System.Drawing.Color]::FromArgb(108, 117, 125)
+$lblStatus.Font = New-Object System.Drawing.Font("Segoe UI", 8, [System.Drawing.FontStyle]::Italic)
+$form.Controls.Add($lblStatus)
+
+# ====================================
+# AFFICHER LE FORMULAIRE
+# ====================================
+
+$form.ShowDialog()
+# STATUT FINAL
+# ====================================
+
+$lblStatus = New-Object System.Windows.Forms.Label
+$lblStatus.Location = New-Object System.Drawing.Point(20, 690)
+$lblStatus.Size = New-Object System.Drawing.Size(600, 40)
+$lblStatus.Text = "✅ Programme prêt à l'emploi | ⚠️ Le Bureau n'est jamais nettoyé | 📌 Utilisez le raccourci Bureau pour un accès rapide"
+$lblStatus.ForeColor = [System.Drawing.Color]::FromArgb(108, 117, 125)
+$lblStatus.Font = New-Object System.Drawing.Font("Segoe UI", 8, [System.Drawing.FontStyle]::Italic)
+$form.Controls.Add($lblStatus)
+
+# ====================================
+# AFFICHER LE FORMULAIRE
+# ====================================
+
+$form.ShowDialog()
